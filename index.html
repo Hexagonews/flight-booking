@@ -176,10 +176,10 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 <div id="ticket"></div>
 </div>
 
-</div>
+<!-- Airport notification sound -->
+<audio id="ding" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
 
 <script>
-/* DATA & HELPER FUNCTIONS */
 const airlines=["Cargo A","Eagle Alliance","Police Airlines","Star Allegiance","Peak"];
 const destinations=[
  {n:"Aubrey / Mummy's Room",s:false},
@@ -194,7 +194,6 @@ function gateFor(a){if(a==="Cargo A")return "Cargo"; if(a==="Star Allegiance")re
 function seatLimit(a){if(a==="Cargo A")return 0; if(a==="Star Allegiance")return 2; return 7;}
 function to12(t){let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12; return h+":"+m+" "+a;}
 
-/* CUSTOM SELECTS */
 function setupCustomSelect(selectId,optionsArray,callback){
   const sel=document.getElementById(selectId);
   const selected=sel.querySelector(".selected");
@@ -202,9 +201,11 @@ function setupCustomSelect(selectId,optionsArray,callback){
   opts.innerHTML="";
   optionsArray.forEach(o=>{
     let div=document.createElement("div");
-    div.textContent=o;
+    if(typeof o==="object"){ div.textContent=o.text; div.dataset.id=o.id; }
+    else div.textContent=o;
     div.onclick=()=>{
-      selected.textContent=o;
+      if(typeof o==="object") selected.dataset.id=o.id;
+      selected.textContent=div.textContent;
       opts.style.display="none";
       if(callback)callback(o);
     };
@@ -213,20 +214,18 @@ function setupCustomSelect(selectId,optionsArray,callback){
   selected.onclick=()=>{opts.style.display=opts.style.display==="block"?"none":"block";}
 }
 
-/* INITIALIZE AIRLINE SELECT */
+// Initialize Airline dropdown
 setupCustomSelect("airlineSelect",airlines,(val)=>{
   updateDestinations(val);
   updateSeats(val);
 });
 
-/* DESTINATIONS BASED ON AIRLINE */
 function updateDestinations(airlineVal){
   let airline=airlineVal||document.querySelector("#airlineSelect .selected").textContent;
   let options=destinations.filter(d=>!d.s||airline==="Star Allegiance").map(d=>d.n);
   setupCustomSelect("destinationSelect",options);
 }
 
-/* SEATS */
 function updateSeats(a){
   let airline=a||document.querySelector("#airlineSelect .selected").textContent;
   let max=seatLimit(airline);
@@ -235,12 +234,10 @@ function updateSeats(a){
   else{seatInput.value=1; seatInput.max=max; seatInput.disabled=false;}
 }
 
-/* FLIGHTS & CHECK-IN */
 function bookFlight(){
   const airline=document.querySelector("#airlineSelect .selected").textContent;
   const dest=document.querySelector("#destinationSelect .selected").textContent;
   const timeInput=document.getElementById("time").value;
-  const seatsInput=parseInt(document.getElementById("seats").value);
   if(!timeInput||airline==="Select Airline"||dest==="Select Destination"){return alert("Select all fields");}
   let flights=JSON.parse(localStorage.flights||"[]");
   flights.push({
@@ -256,13 +253,13 @@ function bookFlight(){
   });
   localStorage.flights=JSON.stringify(flights);
   loadFlights();
+  updateCheckinDropdown(); // update check-in dropdown only when flights change
 }
 
 function loadFlights(){
   let flights=JSON.parse(localStorage.flights||"[]");
   const list=document.getElementById("list");
-  const checkFlightSel=document.getElementById("checkFlightSelect");
-  list.innerHTML=""; checkFlightSel.querySelector(".options").innerHTML="";
+  list.innerHTML="";
   let now=new Date();
 
   flights.sort((a,b)=>a.time.localeCompare(b.time));
@@ -270,61 +267,88 @@ function loadFlights(){
   flights.forEach(f=>{
     let [h,m]=f.time.split(":");
     let ft=new Date(); ft.setHours(h,m,0);
+
     if(now>ft && f.status==="Scheduled"){
       if(f.seats>0||f.max===0){f.status="Departed";fly();}
       else f.status="Cancelled";
     }
+
+    // Boarding announcements with notification sound
     if(now>(new Date(ft-5*60000)) && !f.announced && f.status==="Scheduled"){
       announce(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
+      const ding = document.getElementById("ding");
+      ding.currentTime=0;
+      ding.play();
+      ding.onended=()=>{
+        if('speechSynthesis' in window){
+          let msg=new SpeechSynthesisUtterance(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
+          window.speechSynthesis.speak(msg);
+        }
+      };
       f.announced=true;
     }
 
     let r=document.createElement("tr");
     r.innerHTML=`<td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.airline}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
     list.appendChild(r);
-
-    if(f.status==="Scheduled" && f.seats<f.max){
-      let opt=document.createElement("div");
-      opt.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
-      opt.onclick=()=>{checkFlightSel.querySelector(".selected").textContent=opt.textContent; checkFlightSel.querySelector(".options").style.display="none";}
-      checkFlightSel.querySelector(".options").appendChild(opt);
-    }
   });
 
   localStorage.flights=JSON.stringify(flights);
 }
 
+// Check-in dropdown updated only on flight changes
+function updateCheckinDropdown(){
+  const checkFlightSel=document.getElementById("checkFlightSelect");
+  const opts=checkFlightSel.querySelector(".options");
+  opts.innerHTML="";
+  checkFlightSel.querySelector(".selected").textContent="Select Flight";
+  delete checkFlightSel.querySelector(".selected").dataset.id;
+
+  let flights=JSON.parse(localStorage.flights||"[]");
+  flights.forEach(f=>{
+    if(f.status==="Scheduled" && f.seats<f.max){
+      let div=document.createElement("div");
+      div.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
+      div.dataset.id=f.id;
+      div.onclick=()=>{
+        checkFlightSel.querySelector(".selected").textContent=div.textContent;
+        checkFlightSel.querySelector(".selected").dataset.id=div.dataset.id;
+        opts.style.display="none";
+      };
+      opts.appendChild(div);
+    }
+  });
+}
+
 function checkIn(){
-  const val=document.querySelector("#checkFlightSelect .selected").textContent;
-  if(val==="Select Flight") return;
-  let id=parseInt(val.split(" ")[0]);
+  const sel=document.querySelector("#checkFlightSelect .selected");
+  if(!sel.dataset.id) return alert("Select a flight");
+  const id=parseInt(sel.dataset.id);
   let flights=JSON.parse(localStorage.flights||"[]");
   let f=flights.find(x=>x.id===id);
-  if(!f||f.seats>=f.max) return;
+  if(!f||f.seats>=f.max) return alert("No seats available");
   f.seats++;
   localStorage.flights=JSON.stringify(flights);
   document.getElementById("ticket").innerHTML=`🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
   loadFlights();
+  updateCheckinDropdown();
 }
 
-/* ANNOUNCEMENTS */
 function announce(t){document.getElementById("announcements").textContent=t;}
 function fly(){let p=document.createElement("div");p.className="plane";p.textContent="✈️";document.body.appendChild(p); setTimeout(()=>p.remove(),5000);}
-
-/* RESET AIRPORT BUTTON */
 function resetAirport(){
   if(confirm("Are you sure you want to reset all flights?")){
-    localStorage.flights = "[]";
-    document.getElementById("ticket").innerHTML = "";
-    document.getElementById("announcements").textContent = "No announcements";
+    localStorage.flights="[]";
+    document.getElementById("ticket").innerHTML="";
+    document.getElementById("announcements").textContent="No announcements";
     loadFlights();
+    updateCheckinDropdown();
   }
 }
-
-/* CLOCK & DAILY RESET */
 function clock(){let d=new Date(); let h=d.getHours(),m=d.getMinutes(); let a=h>=12?"PM":"AM"; h=h%12||12; document.getElementById("clock").textContent=h+":"+m.toString().padStart(2,"0")+" "+a;}
 function newDay(){let d=new Date().toDateString(); if(localStorage.day!==d){localStorage.day=d; localStorage.flights="[]";}}
 newDay(); loadFlights(); setInterval(()=>{clock(); loadFlights();},1000);
 </script>
 </body>
 </html>
+
