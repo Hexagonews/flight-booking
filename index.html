@@ -201,10 +201,8 @@ function setupCustomSelect(selectId,optionsArray,callback){
   opts.innerHTML="";
   optionsArray.forEach(o=>{
     let div=document.createElement("div");
-    if(typeof o==="object"){ div.textContent=o.n||o.text; div.dataset.id=o.id; }
-    else div.textContent=o;
+    div.textContent=typeof o==="object"?o.n||o.text:o;
     div.onclick=()=>{
-      if(typeof o==="object") selected.dataset.id=o.id;
       selected.textContent=div.textContent;
       opts.style.display="none";
       if(callback)callback(o);
@@ -273,7 +271,6 @@ function loadFlights(){
       else f.status="Cancelled";
     }
 
-    // Boarding announcements with notification sound
     if(now>(new Date(ft-5*60000)) && !f.announced && f.status==="Scheduled"){
       announce(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
       const ding = document.getElementById("ding");
@@ -289,14 +286,18 @@ function loadFlights(){
     }
 
     let r=document.createElement("tr");
-    r.innerHTML=`<td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.airline}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
+    r.innerHTML=`<td>${to12(f.time)}</td>
+                 <td>${f.gate}</td>
+                 <td>${f.airline}</td>
+                 <td>${f.dest}</td>
+                 <td>${f.seats}/${f.max}</td>
+                 <td>${f.status}</td>`;
     list.appendChild(r);
   });
 
   localStorage.flights=JSON.stringify(flights);
 }
 
-// Update check-in dropdown only when flights change
 function updateCheckinDropdown(){
   const checkFlightSel=document.getElementById("checkFlightSelect");
   const opts=checkFlightSel.querySelector(".options");
@@ -308,7 +309,7 @@ function updateCheckinDropdown(){
   flights.forEach(f=>{
     if(f.status==="Scheduled" && f.seats<f.max){
       let div=document.createElement("div");
-      div.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
+      div.textContent=`${f.id} – ${f.airline} – ${f.dest} (${f.seats}/${f.max})`;
       div.dataset.id=f.id;
       div.onclick=()=>{
         checkFlightSel.querySelector(".selected").textContent=div.textContent;
@@ -320,7 +321,6 @@ function updateCheckinDropdown(){
   });
 }
 
-// Passenger check-in
 function checkIn(){
   const sel=document.querySelector("#checkFlightSelect .selected");
   if(!sel.dataset.id) return alert("Select a flight");
@@ -331,11 +331,11 @@ function checkIn(){
   if(!f) return alert("Flight not found");
   if(f.seats>=f.max) return alert("No seats available");
 
-  f.seats++; // increment booked seats
+  f.seats++;
   localStorage.flights=JSON.stringify(flights);
 
-  loadFlights(); // update departures board
-  updateCheckinDropdown(); // refresh check-in dropdown
+  loadFlights();
+  updateCheckinDropdown();
 
   document.getElementById("ticket").innerHTML=
     `🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
