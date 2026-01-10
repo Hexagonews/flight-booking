@@ -201,7 +201,7 @@ function setupCustomSelect(selectId,optionsArray,callback){
   opts.innerHTML="";
   optionsArray.forEach(o=>{
     let div=document.createElement("div");
-    if(typeof o==="object"){ div.textContent=o.text; div.dataset.id=o.id; }
+    if(typeof o==="object"){ div.textContent=o.n||o.text; div.dataset.id=o.id; }
     else div.textContent=o;
     div.onclick=()=>{
       if(typeof o==="object") selected.dataset.id=o.id;
@@ -253,7 +253,7 @@ function bookFlight(){
   });
   localStorage.flights=JSON.stringify(flights);
   loadFlights();
-  updateCheckinDropdown(); // update check-in dropdown only when flights change
+  updateCheckinDropdown();
 }
 
 function loadFlights(){
@@ -296,7 +296,7 @@ function loadFlights(){
   localStorage.flights=JSON.stringify(flights);
 }
 
-// Check-in dropdown updated only on flight changes
+// Update check-in dropdown only when flights change
 function updateCheckinDropdown(){
   const checkFlightSel=document.getElementById("checkFlightSelect");
   const opts=checkFlightSel.querySelector(".options");
@@ -320,18 +320,25 @@ function updateCheckinDropdown(){
   });
 }
 
+// Passenger check-in
 function checkIn(){
   const sel=document.querySelector("#checkFlightSelect .selected");
   if(!sel.dataset.id) return alert("Select a flight");
+
   const id=parseInt(sel.dataset.id);
   let flights=JSON.parse(localStorage.flights||"[]");
   let f=flights.find(x=>x.id===id);
-  if(!f||f.seats>=f.max) return alert("No seats available");
-  f.seats++;
+  if(!f) return alert("Flight not found");
+  if(f.seats>=f.max) return alert("No seats available");
+
+  f.seats++; // increment booked seats
   localStorage.flights=JSON.stringify(flights);
-  document.getElementById("ticket").innerHTML=`🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
-  loadFlights();
-  updateCheckinDropdown();
+
+  loadFlights(); // update departures board
+  updateCheckinDropdown(); // refresh check-in dropdown
+
+  document.getElementById("ticket").innerHTML=
+    `🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
 }
 
 function announce(t){document.getElementById("announcements").textContent=t;}
@@ -351,4 +358,3 @@ newDay(); loadFlights(); setInterval(()=>{clock(); loadFlights();},1000);
 </script>
 </body>
 </html>
-
