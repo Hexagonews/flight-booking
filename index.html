@@ -2,7 +2,6 @@
 <html>
 <head>
 <title>LEGO Airport</title>
-
 <style>
 body{
   margin:0;
@@ -36,7 +35,50 @@ h1{margin:0;}
 }
 
 label{font-weight:bold;display:block;margin-top:10px;}
-select,input{width:100%;padding:8px;margin-top:4px;border-radius:8px;border:1px solid #ccc;}
+input{
+  width:100%;
+  padding:8px;
+  margin-top:4px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+/* CUSTOM DROPDOWNS */
+.custom-select{
+  position:relative;
+  width:100%;
+  border:2px solid #003366;
+  border-radius:12px;
+  background:#e0f0ff;
+  cursor:pointer;
+  user-select:none;
+  margin-top:6px;
+}
+.custom-select .selected{
+  padding:10px 14px;
+  font-weight:bold;
+  color:#003366;
+}
+.custom-select .options{
+  display:none;
+  position:absolute;
+  top:100%;
+  left:0;
+  right:0;
+  border:2px solid #003366;
+  border-top:none;
+  background:#ffffff;
+  z-index:10;
+  max-height:150px;
+  overflow-y:auto;
+}
+.custom-select .options div{
+  padding:10px 14px;
+  cursor:pointer;
+}
+.custom-select .options div:hover{
+  background:#cce0ff;
+}
 
 button{
   width:100%;
@@ -46,6 +88,11 @@ button{
   border:none;
   border-radius:10px;
   font-size:16px;
+}
+
+button.reset{
+  background:#d32f2f;
+  margin-top:10px;
 }
 
 table{width:100%;border-collapse:collapse;margin-top:10px;}
@@ -85,24 +132,25 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 <h2>🧾 Airport Control Desk</h2>
 
 <label>Airline</label>
-<select id="airline" onchange="updateDestinations();updateSeats()">
-<option>Cargo A</option>
-<option>Eagle Alliance</option>
-<option>Police Airlines</option>
-<option>Star Allegiance</option>
-<option>Peak</option>
-</select>
+<div class="custom-select" id="airlineSelect">
+  <div class="selected">Select Airline</div>
+  <div class="options"></div>
+</div>
 
 <label>Time</label>
 <input type="time" id="time">
 
 <label>Destination</label>
-<select id="destination"></select>
+<div class="custom-select" id="destinationSelect">
+  <div class="selected">Select Destination</div>
+  <div class="options"></div>
+</div>
 
 <label>Seats</label>
 <input type="number" id="seats">
 
 <button onclick="bookFlight()">Create Flight</button>
+<button class="reset" onclick="resetAirport()">Reset Airport</button>
 
 <div class="announce" id="announcements">No announcements</div>
 </div>
@@ -119,7 +167,10 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 <h2>📱 Passenger Check-in</h2>
 
 <label>Choose Flight</label>
-<select id="checkFlight"></select>
+<div class="custom-select" id="checkFlightSelect">
+  <div class="selected">Select Flight</div>
+  <div class="options"></div>
+</div>
 
 <button onclick="checkIn()">Check In Passenger</button>
 <div id="ticket"></div>
@@ -128,6 +179,8 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 </div>
 
 <script>
+/* DATA & HELPER FUNCTIONS */
+const airlines=["Cargo A","Eagle Alliance","Police Airlines","Star Allegiance","Peak"];
 const destinations=[
  {n:"Aubrey / Mummy's Room",s:false},
  {n:"Julian's Room",s:false},
@@ -137,147 +190,141 @@ const destinations=[
  {n:"The Buffet",s:true}
 ];
 
-function gateFor(a){
- if(a==="Cargo A") return "Cargo";
- if(a==="Star Allegiance") return "Gate 3";
- return Math.random()<0.5?"Gate 1":"Gate 2";
+function gateFor(a){if(a==="Cargo A")return "Cargo"; if(a==="Star Allegiance")return "Gate 3"; return Math.random()<0.5?"Gate 1":"Gate 2";}
+function seatLimit(a){if(a==="Cargo A")return 0; if(a==="Star Allegiance")return 2; return 7;}
+function to12(t){let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12; return h+":"+m+" "+a;}
+
+/* CUSTOM SELECTS */
+function setupCustomSelect(selectId,optionsArray,callback){
+  const sel=document.getElementById(selectId);
+  const selected=sel.querySelector(".selected");
+  const opts=sel.querySelector(".options");
+  opts.innerHTML="";
+  optionsArray.forEach(o=>{
+    let div=document.createElement("div");
+    div.textContent=o;
+    div.onclick=()=>{
+      selected.textContent=o;
+      opts.style.display="none";
+      if(callback)callback(o);
+    };
+    opts.appendChild(div);
+  });
+  selected.onclick=()=>{opts.style.display=opts.style.display==="block"?"none":"block";}
 }
 
-function seatLimit(a){
- if(a==="Cargo A") return 0;
- if(a==="Star Allegiance") return 2;
- return 7;
+/* INITIALIZE AIRLINE SELECT */
+setupCustomSelect("airlineSelect",airlines,(val)=>{
+  updateDestinations(val);
+  updateSeats(val);
+});
+
+/* DESTINATIONS BASED ON AIRLINE */
+function updateDestinations(airlineVal){
+  let airline=airlineVal||document.querySelector("#airlineSelect .selected").textContent;
+  let options=destinations.filter(d=>!d.s||airline==="Star Allegiance").map(d=>d.n);
+  setupCustomSelect("destinationSelect",options);
 }
 
-function updateDestinations(){
- destination.innerHTML="";
- destinations.forEach(d=>{
-  if(!d.s || airline.value==="Star Allegiance"){
-   let o=document.createElement("option");
-   o.textContent=d.n;
-   destination.appendChild(o);
-  }
- });
+/* SEATS */
+function updateSeats(a){
+  let airline=a||document.querySelector("#airlineSelect .selected").textContent;
+  let max=seatLimit(airline);
+  const seatInput=document.getElementById("seats");
+  if(max===0){seatInput.value=0;seatInput.disabled=true;}
+  else{seatInput.value=1; seatInput.max=max; seatInput.disabled=false;}
 }
 
-function updateSeats(){
- let max=seatLimit(airline.value);
- if(max===0){seats.value=0;seats.disabled=true;}
- else{seats.disabled=false;seats.max=max;seats.value=1;}
-}
-
+/* FLIGHTS & CHECK-IN */
 function bookFlight(){
- if(!time.value) return alert("Pick time");
- let flights=JSON.parse(localStorage.flights||"[]");
- flights.push({
-  id:Math.floor(Math.random()*900+100),
-  airline:airline.value,
-  time:time.value,
-  dest:destination.value,
-  gate:gateFor(airline.value),
-  seats:0,
-  max:seatLimit(airline.value),
-  status:"Scheduled",
-  announced:false
- });
- localStorage.flights=JSON.stringify(flights);
- load();
+  const airline=document.querySelector("#airlineSelect .selected").textContent;
+  const dest=document.querySelector("#destinationSelect .selected").textContent;
+  const timeInput=document.getElementById("time").value;
+  const seatsInput=parseInt(document.getElementById("seats").value);
+  if(!timeInput||airline==="Select Airline"||dest==="Select Destination"){return alert("Select all fields");}
+  let flights=JSON.parse(localStorage.flights||"[]");
+  flights.push({
+    id:Math.floor(Math.random()*900+100),
+    airline,
+    time:timeInput,
+    dest,
+    gate:gateFor(airline),
+    seats:0,
+    max:seatLimit(airline),
+    status:"Scheduled",
+    announced:false
+  });
+  localStorage.flights=JSON.stringify(flights);
+  loadFlights();
 }
 
-function load(){
- let flights=JSON.parse(localStorage.flights||"[]");
- list.innerHTML="";
- checkFlight.innerHTML="";
- let now=new Date();
+function loadFlights(){
+  let flights=JSON.parse(localStorage.flights||"[]");
+  const list=document.getElementById("list");
+  const checkFlightSel=document.getElementById("checkFlightSelect");
+  list.innerHTML=""; checkFlightSel.querySelector(".options").innerHTML="";
+  let now=new Date();
 
- flights.sort((a,b)=>a.time.localeCompare(b.time));
+  flights.sort((a,b)=>a.time.localeCompare(b.time));
 
- flights.forEach(f=>{
-  let [h,m]=f.time.split(":");
-  let ft=new Date(); ft.setHours(h,m,0);
+  flights.forEach(f=>{
+    let [h,m]=f.time.split(":");
+    let ft=new Date(); ft.setHours(h,m,0);
+    if(now>ft && f.status==="Scheduled"){
+      if(f.seats>0||f.max===0){f.status="Departed";fly();}
+      else f.status="Cancelled";
+    }
+    if(now>(new Date(ft-5*60000)) && !f.announced && f.status==="Scheduled"){
+      announce(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
+      f.announced=true;
+    }
 
-  if(now>ft && f.status==="Scheduled"){
-   if(f.seats>0 || f.max===0){f.status="Departed";fly();}
-   else f.status="Cancelled";
-  }
+    let r=document.createElement("tr");
+    r.innerHTML=`<td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.airline}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
+    list.appendChild(r);
 
-  if(now>new Date(ft-5*60000) && !f.announced && f.status==="Scheduled"){
-    announce(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
-    f.announced=true;
-  }
+    if(f.status==="Scheduled" && f.seats<f.max){
+      let opt=document.createElement("div");
+      opt.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
+      opt.onclick=()=>{checkFlightSel.querySelector(".selected").textContent=opt.textContent; checkFlightSel.querySelector(".options").style.display="none";}
+      checkFlightSel.querySelector(".options").appendChild(opt);
+    }
+  });
 
-  let r=document.createElement("tr");
-  r.innerHTML=`<td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.airline}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
-  list.appendChild(r);
-
-  if(f.status==="Scheduled" && f.seats<f.max){
-   let o=document.createElement("option");
-   o.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
-   o.value=f.id;
-   checkFlight.appendChild(o);
-  }
- });
- localStorage.flights=JSON.stringify(flights);
+  localStorage.flights=JSON.stringify(flights);
 }
 
 function checkIn(){
- let id=checkFlight.value;
- let flights=JSON.parse(localStorage.flights||"[]");
- let f=flights.find(x=>x.id==id);
- if(!f||f.seats>=f.max) return;
- f.seats++;
- ticket.innerHTML=`🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
- localStorage.flights=JSON.stringify(flights);
- load();
+  const val=document.querySelector("#checkFlightSelect .selected").textContent;
+  if(val==="Select Flight") return;
+  let id=parseInt(val.split(" ")[0]);
+  let flights=JSON.parse(localStorage.flights||"[]");
+  let f=flights.find(x=>x.id===id);
+  if(!f||f.seats>=f.max) return;
+  f.seats++;
+  localStorage.flights=JSON.stringify(flights);
+  document.getElementById("ticket").innerHTML=`🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
+  loadFlights();
 }
 
-function announce(t){
- announcements.textContent=t;
+/* ANNOUNCEMENTS */
+function announce(t){document.getElementById("announcements").textContent=t;}
+function fly(){let p=document.createElement("div");p.className="plane";p.textContent="✈️";document.body.appendChild(p); setTimeout(()=>p.remove(),5000);}
+
+/* RESET AIRPORT BUTTON */
+function resetAirport(){
+  if(confirm("Are you sure you want to reset all flights?")){
+    localStorage.flights = "[]";
+    document.getElementById("ticket").innerHTML = "";
+    document.getElementById("announcements").textContent = "No announcements";
+    loadFlights();
+  }
 }
 
-function to12(t){
- let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12;
- return h+":"+m+" "+a;
-}
-
-function fly(){
- let p=document.createElement("div");
- p.className="plane";
- p.textContent="✈️";
- document.body.appendChild(p);
- setTimeout(()=>p.remove(),5000);
-}
-
-function clock(){
- let d=new Date();
- let h=d.getHours(),m=d.getMinutes();
- let a=h>=12?"PM":"AM";h=h%12||12;
- clockEl.textContent=h+":"+m.toString().padStart(2,"0")+" "+a;
-}
-
-function newDay(){
- let d=new Date().toDateString();
- if(localStorage.day!==d){
-  localStorage.day=d;
-  localStorage.flights="[]";
- }
-}
-
-const airline=document.getElementById("airline");
-const destination=document.getElementById("destination");
-const time=document.getElementById("time");
-const seats=document.getElementById("seats");
-const list=document.getElementById("list");
-const clockEl=document.getElementById("clock");
-const announcements=document.getElementById("announcements");
-const checkFlight=document.getElementById("checkFlight");
-const ticket=document.getElementById("ticket");
-
-newDay();
-updateDestinations();
-updateSeats();
-setInterval(()=>{clock();load();},1000);
+/* CLOCK & DAILY RESET */
+function clock(){let d=new Date(); let h=d.getHours(),m=d.getMinutes(); let a=h>=12?"PM":"AM"; h=h%12||12; document.getElementById("clock").textContent=h+":"+m.toString().padStart(2,"0")+" "+a;}
+function newDay(){let d=new Date().toDateString(); if(localStorage.day!==d){localStorage.day=d; localStorage.flights="[]";}}
+newDay(); loadFlights(); setInterval(()=>{clock(); loadFlights();},1000);
 </script>
-
 </body>
 </html>
