@@ -30,7 +30,7 @@ h1{margin:0;}
   background:white;
   border-radius:16px;
   padding:15px;
-  width:380px;
+  width:420px;
   box-shadow:0 8px 20px rgba(0,0,0,.25);
 }
 
@@ -43,7 +43,6 @@ input{
   border:1px solid #ccc;
 }
 
-/* CUSTOM DROPDOWNS */
 .custom-select{
   position:relative;
   width:100%;
@@ -99,6 +98,8 @@ table{width:100%;border-collapse:collapse;margin-top:10px;}
 th{background:#003366;color:white;}
 td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 
+tr.return-flight td{background:#fff3cd;} /* return flights highlighted */
+
 .plane{
   position:fixed;
   bottom:30px;
@@ -134,22 +135,28 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 <label>Airline</label>
 <div class="custom-select" id="airlineSelect">
   <div class="selected">Select Airline</div>
-  <div class="options"></div>
 </div>
-
-<label>Time</label>
-<input type="time" id="time">
 
 <label>Destination</label>
 <div class="custom-select" id="destinationSelect">
   <div class="selected">Select Destination</div>
-  <div class="options"></div>
 </div>
+
+<label>Ticket Type</label>
+<div class="custom-select" id="ticketTypeSelect">
+  <div class="selected">Select Type</div>
+</div>
+
+<label>Departure Time</label>
+<input type="time" id="timeOut">
+
+<label id="returnLabel" style="display:none;">Return Time</label>
+<input type="time" id="timeReturn" style="display:none;">
 
 <label>Seats</label>
 <input type="number" id="seats">
 
-<button onclick="bookFlight()">Create Flight</button>
+<button onclick="bookFlight()">Buy Ticket</button>
 <button class="reset" onclick="resetAirport()">Reset Airport</button>
 
 <div class="announce" id="announcements">No announcements</div>
@@ -161,19 +168,6 @@ td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
 <thead><tr><th>Time</th><th>Gate</th><th>Airline</th><th>To</th><th>Seats</th><th>Status</th></tr></thead>
 <tbody id="list"></tbody>
 </table>
-</div>
-
-<div class="panel">
-<h2>📱 Passenger Check-in</h2>
-
-<label>Choose Flight</label>
-<div class="custom-select" id="checkFlightSelect">
-  <div class="selected">Select Flight</div>
-  <div class="options"></div>
-</div>
-
-<button onclick="checkIn()">Check In Passenger</button>
-<div id="ticket"></div>
 </div>
 
 <!-- Airport notification sound -->
@@ -197,7 +191,8 @@ function to12(t){let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%1
 function setupCustomSelect(selectId,optionsArray,callback){
   const sel=document.getElementById(selectId);
   const selected=sel.querySelector(".selected");
-  const opts=sel.querySelector(".options");
+  let opts=sel.querySelector(".options");
+  if(!opts){opts=document.createElement("div"); opts.className="options"; sel.appendChild(opts);}
   opts.innerHTML="";
   optionsArray.forEach(o=>{
     let div=document.createElement("div");
@@ -205,17 +200,26 @@ function setupCustomSelect(selectId,optionsArray,callback){
     div.onclick=()=>{
       selected.textContent=div.textContent;
       opts.style.display="none";
-      if(callback)callback(o);
+      if(callback)callback(div.textContent);
     };
     opts.appendChild(div);
   });
   selected.onclick=()=>{opts.style.display=opts.style.display==="block"?"none":"block";}
 }
 
-// Initialize Airline dropdown
+// Initialize dropdowns
 setupCustomSelect("airlineSelect",airlines,(val)=>{
   updateDestinations(val);
   updateSeats(val);
+});
+setupCustomSelect("ticketTypeSelect", ["One-way","Return"], (val)=>{
+    if(val === "Return"){
+        document.getElementById("timeReturn").style.display="block";
+        document.getElementById("returnLabel").style.display="block";
+    } else {
+        document.getElementById("timeReturn").style.display="none";
+        document.getElementById("returnLabel").style.display="none";
+    }
 });
 
 function updateDestinations(airlineVal){
@@ -235,23 +239,46 @@ function updateSeats(a){
 function bookFlight(){
   const airline=document.querySelector("#airlineSelect .selected").textContent;
   const dest=document.querySelector("#destinationSelect .selected").textContent;
-  const timeInput=document.getElementById("time").value;
-  if(!timeInput||airline==="Select Airline"||dest==="Select Destination"){return alert("Select all fields");}
+  const type=document.querySelector("#ticketTypeSelect .selected").textContent;
+  const timeOut=document.getElementById("timeOut").value;
+  const timeReturn=document.getElementById("timeReturn").value;
+  if(!timeOut||airline==="Select Airline"||dest==="Select Destination"||type==="Select Type"){return alert("Select all fields");}
+
   let flights=JSON.parse(localStorage.flights||"[]");
+
+  // Outbound flight
   flights.push({
     id:Math.floor(Math.random()*900+100),
     airline,
-    time:timeInput,
+    time:timeOut,
     dest,
     gate:gateFor(airline),
-    seats:0,
+    seats:1,
     max:seatLimit(airline),
     status:"Scheduled",
-    announced:false
+    announced:false,
+    isReturn:false
   });
+
+  // Return flight if needed
+  if(type==="Return"){
+    if(!timeReturn) return alert("Select return time");
+    flights.push({
+      id:Math.floor(Math.random()*900+100),
+      airline,
+      time:timeReturn,
+      dest:"Return from "+dest,
+      gate:gateFor(airline),
+      seats:1,
+      max:seatLimit(airline),
+      status:"Scheduled",
+      announced:false,
+      isReturn:true
+    });
+  }
+
   localStorage.flights=JSON.stringify(flights);
   loadFlights();
-  updateCheckinDropdown();
 }
 
 function loadFlights(){
@@ -286,6 +313,7 @@ function loadFlights(){
     }
 
     let r=document.createElement("tr");
+    if(f.isReturn) r.classList.add("return-flight");
     r.innerHTML=`<td>${to12(f.time)}</td>
                  <td>${f.gate}</td>
                  <td>${f.airline}</td>
@@ -298,58 +326,13 @@ function loadFlights(){
   localStorage.flights=JSON.stringify(flights);
 }
 
-function updateCheckinDropdown(){
-  const checkFlightSel=document.getElementById("checkFlightSelect");
-  const opts=checkFlightSel.querySelector(".options");
-  opts.innerHTML="";
-  checkFlightSel.querySelector(".selected").textContent="Select Flight";
-  delete checkFlightSel.querySelector(".selected").dataset.id;
-
-  let flights=JSON.parse(localStorage.flights||"[]");
-  flights.forEach(f=>{
-    if(f.status==="Scheduled" && f.seats<f.max){
-      let div=document.createElement("div");
-      div.textContent=`${f.id} – ${f.airline} – ${f.dest} (${f.seats}/${f.max})`;
-      div.dataset.id=f.id;
-      div.onclick=()=>{
-        checkFlightSel.querySelector(".selected").textContent=div.textContent;
-        checkFlightSel.querySelector(".selected").dataset.id=div.dataset.id;
-        opts.style.display="none";
-      };
-      opts.appendChild(div);
-    }
-  });
-}
-
-function checkIn(){
-  const sel=document.querySelector("#checkFlightSelect .selected");
-  if(!sel.dataset.id) return alert("Select a flight");
-
-  const id=parseInt(sel.dataset.id);
-  let flights=JSON.parse(localStorage.flights||"[]");
-  let f=flights.find(x=>x.id===id);
-  if(!f) return alert("Flight not found");
-  if(f.seats>=f.max) return alert("No seats available");
-
-  f.seats++;
-  localStorage.flights=JSON.stringify(flights);
-
-  loadFlights();
-  updateCheckinDropdown();
-
-  document.getElementById("ticket").innerHTML=
-    `🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
-}
-
 function announce(t){document.getElementById("announcements").textContent=t;}
 function fly(){let p=document.createElement("div");p.className="plane";p.textContent="✈️";document.body.appendChild(p); setTimeout(()=>p.remove(),5000);}
 function resetAirport(){
   if(confirm("Are you sure you want to reset all flights?")){
     localStorage.flights="[]";
-    document.getElementById("ticket").innerHTML="";
     document.getElementById("announcements").textContent="No announcements";
     loadFlights();
-    updateCheckinDropdown();
   }
 }
 function clock(){let d=new Date(); let h=d.getHours(),m=d.getMinutes(); let a=h>=12?"PM":"AM"; h=h%12||12; document.getElementById("clock").textContent=h+":"+m.toString().padStart(2,"0")+" "+a;}
