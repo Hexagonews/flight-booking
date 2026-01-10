@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LEGO Airport</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Segoe UI,Arial;
+  background:linear-gradient(#66b9ff,#eaf6ff);
+}
+header{
+  background:#003366;
+  color:white;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+h1{margin:0;}
+
+.container{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:20px;
+  padding:20px;
+}
+
+.panel{
+  background:white;
+  border-radius:16px;
+  padding:15px;
+  width:380px;
+  box-shadow:0 8px 20px rgba(0,0,0,.25);
+}
+
+label{font-weight:bold;display:block;margin-top:10px;}
+select,input{width:100%;padding:8px;margin-top:4px;border-radius:8px;border:1px solid #ccc;}
+
+button{
+  width:100%;
+  margin-top:15px;
+  padding:12px;
+  background:#ff9800;
+  border:none;
+  border-radius:10px;
+  font-size:16px;
+}
+
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th{background:#003366;color:white;}
+td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
+
+.plane{
+  position:fixed;
+  bottom:30px;
+  left:-80px;
+  font-size:50px;
+  animation:fly 5s linear forwards;
+}
+@keyframes fly{to{left:110%;}}
+
+.announce{
+  background:#003366;
+  color:white;
+  padding:10px;
+  border-radius:10px;
+  margin-top:10px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🧱 LEGO Airport</h1>
+<div id="clock"></div>
+</header>
+
+<div class="container">
+
+<div class="panel">
+<h2>🧾 Airport Control Desk</h2>
+
+<label>Airline</label>
+<select id="airline" onchange="updateDestinations();updateSeats()">
+<option>Cargo A</option>
+<option>Eagle Alliance</option>
+<option>Police Airlines</option>
+<option>Star Allegiance</option>
+<option>Peak</option>
+</select>
+
+<label>Time</label>
+<input type="time" id="time">
+
+<label>Destination</label>
+<select id="destination"></select>
+
+<label>Seats</label>
+<input type="number" id="seats">
+
+<button onclick="bookFlight()">Create Flight</button>
+
+<div class="announce" id="announcements">No announcements</div>
+</div>
+
+<div class="panel">
+<h2>📺 Departures Board</h2>
+<table>
+<thead><tr><th>Time</th><th>Gate</th><th>Airline</th><th>To</th><th>Seats</th><th>Status</th></tr></thead>
+<tbody id="list"></tbody>
+</table>
+</div>
+
+<div class="panel">
+<h2>📱 Passenger Check-in</h2>
+
+<label>Choose Flight</label>
+<select id="checkFlight"></select>
+
+<button onclick="checkIn()">Check In Passenger</button>
+<div id="ticket"></div>
+</div>
+
+</div>
+
+<script>
+const destinations=[
+ {n:"Aubrey / Mummy's Room",s:false},
+ {n:"Julian's Room",s:false},
+ {n:"Aubrey's Mansion",s:true},
+ {n:"In-between Elliot & Aubrey's Desk",s:true},
+ {n:"Living Room",s:true},
+ {n:"The Buffet",s:true}
+];
+
+function gateFor(a){
+ if(a==="Cargo A") return "Cargo";
+ if(a==="Star Allegiance") return "Gate 3";
+ return Math.random()<0.5?"Gate 1":"Gate 2";
+}
+
+function seatLimit(a){
+ if(a==="Cargo A") return 0;
+ if(a==="Star Allegiance") return 2;
+ return 7;
+}
+
+function updateDestinations(){
+ destination.innerHTML="";
+ destinations.forEach(d=>{
+  if(!d.s || airline.value==="Star Allegiance"){
+   let o=document.createElement("option");
+   o.textContent=d.n;
+   destination.appendChild(o);
+  }
+ });
+}
+
+function updateSeats(){
+ let max=seatLimit(airline.value);
+ if(max===0){seats.value=0;seats.disabled=true;}
+ else{seats.disabled=false;seats.max=max;seats.value=1;}
+}
+
+function bookFlight(){
+ if(!time.value) return alert("Pick time");
+ let flights=JSON.parse(localStorage.flights||"[]");
+ flights.push({
+  id:Math.floor(Math.random()*900+100),
+  airline:airline.value,
+  time:time.value,
+  dest:destination.value,
+  gate:gateFor(airline.value),
+  seats:0,
+  max:seatLimit(airline.value),
+  status:"Scheduled",
+  announced:false
+ });
+ localStorage.flights=JSON.stringify(flights);
+ load();
+}
+
+function load(){
+ let flights=JSON.parse(localStorage.flights||"[]");
+ list.innerHTML="";
+ checkFlight.innerHTML="";
+ let now=new Date();
+
+ flights.sort((a,b)=>a.time.localeCompare(b.time));
+
+ flights.forEach(f=>{
+  let [h,m]=f.time.split(":");
+  let ft=new Date(); ft.setHours(h,m,0);
+
+  if(now>ft && f.status==="Scheduled"){
+   if(f.seats>0 || f.max===0){f.status="Departed";fly();}
+   else f.status="Cancelled";
+  }
+
+  if(now>new Date(ft-5*60000) && !f.announced && f.status==="Scheduled"){
+    announce(`Flight ${f.id} to ${f.dest} now boarding at ${f.gate}`);
+    f.announced=true;
+  }
+
+  let r=document.createElement("tr");
+  r.innerHTML=`<td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.airline}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
+  list.appendChild(r);
+
+  if(f.status==="Scheduled" && f.seats<f.max){
+   let o=document.createElement("option");
+   o.textContent=`${f.id} – ${f.airline} – ${f.dest}`;
+   o.value=f.id;
+   checkFlight.appendChild(o);
+  }
+ });
+ localStorage.flights=JSON.stringify(flights);
+}
+
+function checkIn(){
+ let id=checkFlight.value;
+ let flights=JSON.parse(localStorage.flights||"[]");
+ let f=flights.find(x=>x.id==id);
+ if(!f||f.seats>=f.max) return;
+ f.seats++;
+ ticket.innerHTML=`🎫 Ticket for Flight ${f.id}<br>${f.airline}<br>${f.dest}<br>${f.gate}`;
+ localStorage.flights=JSON.stringify(flights);
+ load();
+}
+
+function announce(t){
+ announcements.textContent=t;
+}
+
+function to12(t){
+ let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12;
+ return h+":"+m+" "+a;
+}
+
+function fly(){
+ let p=document.createElement("div");
+ p.className="plane";
+ p.textContent="✈️";
+ document.body.appendChild(p);
+ setTimeout(()=>p.remove(),5000);
+}
+
+function clock(){
+ let d=new Date();
+ let h=d.getHours(),m=d.getMinutes();
+ let a=h>=12?"PM":"AM";h=h%12||12;
+ clockEl.textContent=h+":"+m.toString().padStart(2,"0")+" "+a;
+}
+
+function newDay(){
+ let d=new Date().toDateString();
+ if(localStorage.day!==d){
+  localStorage.day=d;
+  localStorage.flights="[]";
+ }
+}
+
+const airline=document.getElementById("airline");
+const destination=document.getElementById("destination");
+const time=document.getElementById("time");
+const seats=document.getElementById("seats");
+const list=document.getElementById("list");
+const clockEl=document.getElementById("clock");
+const announcements=document.getElementById("announcements");
+const checkFlight=document.getElementById("checkFlight");
+const ticket=document.getElementById("ticket");
+
+newDay();
+updateDestinations();
+updateSeats();
+setInterval(()=>{clock();load();},1000);
+</script>
+
+</body>
+</html>
