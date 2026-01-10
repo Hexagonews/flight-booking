@@ -123,14 +123,14 @@ tr.return-flight td{background:#fff3cd;} /* return flights highlighted */
 <body>
 
 <header>
-<h1>🧱 LEGO Airport</h1>
+<h1>LEGO Airport</h1>
 <div id="clock"></div>
 </header>
 
 <div class="container">
 
 <div class="panel">
-<h2>🧾 Airport Control Desk</h2>
+<h2>Airport Control Desk</h2>
 
 <label>Airline</label>
 <div class="custom-select" id="airlineSelect">
@@ -163,14 +163,13 @@ tr.return-flight td{background:#fff3cd;} /* return flights highlighted */
 </div>
 
 <div class="panel">
-<h2>📺 Departures Board</h2>
+<h2>Departures Board</h2>
 <table>
 <thead><tr><th>Time</th><th>Gate</th><th>Airline</th><th>To</th><th>Seats</th><th>Status</th></tr></thead>
 <tbody id="list"></tbody>
 </table>
 </div>
 
-<!-- Airport notification sound -->
 <audio id="ding" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
 
 <script>
@@ -246,35 +245,34 @@ function bookFlight(){
 
   let flights=JSON.parse(localStorage.flights||"[]");
 
-  // Outbound flight
-  flights.push({
-    id:Math.floor(Math.random()*900+100),
-    airline,
-    time:timeOut,
-    dest,
-    gate:gateFor(airline),
-    seats:1,
-    max:seatLimit(airline),
-    status:"Scheduled",
-    announced:false,
-    isReturn:false
-  });
+  function addTicket(time,destination,isReturn){
+    let existing = flights.find(f => f.airline===airline && f.dest===destination && f.time===time && f.isReturn===isReturn);
+    if(existing){
+      if(existing.seats>=existing.max) return alert("Flight full!");
+      existing.seats++;
+    } else {
+      flights.push({
+        id:Math.floor(Math.random()*900+100),
+        airline,
+        time:time,
+        dest:destination,
+        gate:gateFor(airline),
+        seats:1,
+        max:seatLimit(airline),
+        status:"Scheduled",
+        announced:false,
+        isReturn:isReturn
+      });
+    }
+  }
 
-  // Return flight if needed
+  // Outbound
+  addTicket(timeOut,dest,false);
+
+  // Return if needed
   if(type==="Return"){
     if(!timeReturn) return alert("Select return time");
-    flights.push({
-      id:Math.floor(Math.random()*900+100),
-      airline,
-      time:timeReturn,
-      dest:"Return from "+dest,
-      gate:gateFor(airline),
-      seats:1,
-      max:seatLimit(airline),
-      status:"Scheduled",
-      announced:false,
-      isReturn:true
-    });
+    addTicket(timeReturn,"Return from "+dest,true);
   }
 
   localStorage.flights=JSON.stringify(flights);
