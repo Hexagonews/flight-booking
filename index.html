@@ -1,283 +1,274 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
 <title>LEGO Airport</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body{
   margin:0;
   font-family:Segoe UI,Arial;
-  background:linear-gradient(#74c7ff,#eaf6ff);
+  background:linear-gradient(#66b9ff,#eaf6ff);
 }
+
+#loadingScreen{
+  position:fixed;
+  inset:0;
+  background:#003366;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  font-size:28px;
+  z-index:1000;
+}
+
+#loadingPlane{
+  font-size:60px;
+  animation:float 2s infinite ease-in-out;
+}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-20px);}}
+
 header{
   background:#003366;
   color:white;
-  padding:12px;
+  padding:15px;
   display:flex;
   justify-content:space-between;
+  align-items:center;
 }
+
 .container{
   display:flex;
   flex-wrap:wrap;
   justify-content:center;
+  gap:20px;
+  padding:20px;
 }
+
 .panel{
   background:white;
-  border-radius:18px;
+  border-radius:16px;
   padding:15px;
-  margin:10px;
-  box-shadow:0 8px 20px rgba(0,0,0,.25);
   width:420px;
+  box-shadow:0 8px 20px rgba(0,0,0,.25);
 }
-h3{margin-top:0;}
-.custom{
-  border:2px solid #003366;
-  border-radius:10px;
-  padding:8px;
-  margin-top:6px;
-  cursor:pointer;
-  background:#eef6ff;
-}
-.custom .opts{
-  display:none;
-  background:white;
-  border-radius:10px;
-  margin-top:6px;
-  box-shadow:0 5px 15px rgba(0,0,0,.3);
-}
-.custom .opts div{
-  padding:8px;
-}
-.custom .opts div:hover{background:#dbeeff;}
-input,button,select{
+
+label{font-weight:bold;margin-top:8px;display:block;}
+
+input,button{
   width:100%;
   padding:10px;
-  margin-top:8px;
+  margin-top:6px;
   border-radius:10px;
-  border:none;
+  border:1px solid #ccc;
 }
+
 button{background:#ff9800;font-size:16px;}
-table{width:100%;border-collapse:collapse;}
-th{background:#003366;color:white;}
-td,th{text-align:center;padding:6px;}
-.return{background:#fff4c2;}
-#unlock{
-  background:#2ecc71;
-  margin:10px;
-}
-#announce{
-  margin-top:10px;
-  background:#003366;
-  color:white;
-  padding:8px;
+button.reset{background:#d32f2f;color:white;}
+
+.custom-select{
+  background:#e0f0ff;
+  border:2px solid #003366;
   border-radius:10px;
+  margin-top:6px;
+  cursor:pointer;
+  user-select:none;
 }
 
-/* --- Slick Loading Animation --- */
-#loader{
+.custom-select .selected{
+  padding:10px;
+  font-weight:bold;
+  color:#003366;
+}
+
+.custom-select .options{
+  display:none;
+  border-top:2px solid #003366;
+  background:white;
+  max-height:160px;
+  overflow:auto;
+}
+.custom-select .options div{
+  padding:10px;
+}
+.custom-select .options div:hover{
+  background:#cce0ff;
+}
+
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th{background:#003366;color:white;}
+td,th{padding:6px;text-align:center;border-bottom:1px solid #ccc;}
+tr.return td{background:#fff3cd;}
+
+.plane{
   position:fixed;
-  inset:0;
+  bottom:30px;
+  left:-80px;
+  font-size:50px;
+  animation:fly 6s linear forwards;
+}
+@keyframes fly{to{left:110%;}}
+
+.announce{
   background:#003366;
   color:white;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  font-size:24px;
-  z-index:999;
-}
-
-#plane{
-  font-size:50px;
-  animation: bounce 1s infinite alternate;
-  margin-bottom:20px;
-}
-
-@keyframes bounce{
-  0%{transform:translateY(0) rotate(-10deg);}
-  50%{transform:translateY(-20px) rotate(10deg);}
-  100%{transform:translateY(0) rotate(-10deg);}
-}
-
-#loadingText{
-  font-size:24px;
-  letter-spacing:2px;
-  animation: fade 1.5s infinite alternate;
-}
-
-@keyframes fade{
-  0%{opacity:0.3;}
-  100%{opacity:1;}
+  padding:10px;
+  border-radius:10px;
+  margin-top:10px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- --- Loading Screen --- -->
-<div id="loader">
-  <div id="plane">✈️</div>
-  <div id="loadingText">Loading LEGO Airport...</div>
+<div id="loadingScreen">
+  <div>
+    <div id="loadingPlane">✈️</div>
+    Loading LEGO Airport…
+  </div>
 </div>
 
 <header>
-<h2>LEGO Airport</h2>
+<h1>LEGO Airport</h1>
 <div id="clock"></div>
 </header>
-
-<button id="unlock">Tap to enable announcements</button>
 
 <div class="container">
 
 <div class="panel">
-<h3>Control Desk</h3>
+<h2>Control Desk</h2>
 
-<div class="custom" id="airline"><div class="sel">Select Airline</div><div class="opts"></div></div>
-<div class="custom" id="dest"><div class="sel">Select Destination</div><div class="opts"></div></div>
-<div class="custom" id="type"><div class="sel">One-way</div><div class="opts"></div></div>
+<label>Airline</label>
+<div class="custom-select" id="airlineSelect"><div class="selected">Select Airline</div></div>
+
+<label>Destination</label>
+<div class="custom-select" id="destinationSelect"><div class="selected">Select Destination</div></div>
+
+<label>Ticket Type</label>
+<div class="custom-select" id="ticketTypeSelect"><div class="selected">Select Type</div></div>
+
+<label>Departure Date</label>
+<input type="date" id="dateOut">
 
 <label>Departure Time</label>
-<input type="time" id="time">
+<input type="time" id="timeOut">
 
-<label id="retLab">Return Time</label>
-<select id="ret">
-  <option value="">Select later</option>
-  <option>12:00</option><option>14:00</option><option>16:00</option>
-</select>
+<label id="returnLabel" style="display:none;">Return Date</label>
+<input type="date" id="dateReturn" style="display:none;">
+
+<label id="returnTimeLabel" style="display:none;">Return Time</label>
+<input type="time" id="timeReturn" style="display:none;">
+
+<div id="notifyLaterBox" style="display:none;">
+  <label><input type="checkbox" id="notifyLater"> Notify me later</label>
+</div>
 
 <label>Seats</label>
-<input type="number" id="seats" value="1" min="1">
+<input type="number" id="seats">
 
-<button onclick="book()">Buy Ticket</button>
-<button onclick="resetAirport()" style="background:#e74c3c;">Reset Airport (New Day)</button>
+<button onclick="bookFlight()">Buy Ticket</button>
+<button class="reset" onclick="resetAirport()">Reset Airport</button>
+
+<div class="announce" id="announcements">No announcements</div>
 </div>
 
 <div class="panel">
-<h3>Departures</h3>
+<h2>Departures</h2>
 <table>
-<thead><tr><th>Time</th><th>To</th><th>Gate</th><th>Seats</th><th>Status</th></tr></thead>
+<thead><tr><th>Date</th><th>Time</th><th>Gate</th><th>To</th><th>Seats</th><th>Status</th></tr></thead>
 <tbody id="list"></tbody>
 </table>
-<div id="announce">No announcements</div>
 </div>
 
-</div>
-
-<audio id="ding" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+<audio id="ding" preload="auto">
+  <source src="https://www.soundjay.com/buttons/sounds/button-16.mp3" type="audio/mpeg">
+</audio>
 
 <script>
-let flights=JSON.parse(localStorage.flights||"[]");
+const airlines=["Cargo A","Eagle Alliance","Police Airlines","Star Allegiance","Peak"];
+const destinations=["Aubrey's Room","Julian's Room","Living Room","The Buffet"];
 
-function gateFor(a){
- if(a==="Cargo A")return"Cargo Gate";
- if(a==="Eagle Alliance")return"Gate 1";
- if(a==="Police Airlines")return"Gate 2";
- if(a==="Star Allegiance")return"Gate 3";
- return"Gate 2";
-}
-function seatLimit(a){
- if(a==="Star Allegiance")return 2;
- if(a==="Cargo A")return 999;
- return 7;
-}
+function gateFor(a){return a==="Cargo A"?"Cargo":"Gate "+(1+Math.floor(Math.random()*3));}
+function seatLimit(a){if(a==="Cargo A")return 0;if(a==="Star Allegiance")return 2;return 7;}
+function to12(t){let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12;return h+":"+m+" "+a;}
 
-function setup(id,arr,cb){
- let el=document.getElementById(id);
- let sel=el.querySelector(".sel");
- let o=el.querySelector(".opts");
+function setupSelect(id,arr,cb){
+ let s=document.getElementById(id),sel=s.querySelector(".selected");
+ let o=document.createElement("div");o.className="options";s.appendChild(o);
  arr.forEach(v=>{
-  let d=document.createElement("div");
-  d.textContent=v;
-  d.onclick=()=>{sel.textContent=v;o.style.display="none";cb&&cb(v);}
-  o.appendChild(d);
+   let d=document.createElement("div");d.textContent=v;
+   d.onclick=()=>{sel.textContent=v;o.style.display="none";if(cb)cb(v);}
+   o.appendChild(d);
  });
- sel.onclick=()=>o.style.display=o.style.display==="block"?"none":"block";
+ sel.onclick=()=>o.style.display=o.style.display=="block"?"none":"block";
 }
 
-setup("airline",["Star Allegiance","Eagle Alliance","Cargo A","Police Airlines","Peak"]);
-setup("dest",["Living Room","Aubrey's Mansion","Julian's Room"]);
-setup("type",["One-way","Return"],v=>{
- retLab.style.display=v==="Return"?"block":"none";
- ret.style.display=v==="Return"?"block":"none";
-});
+setupSelect("airlineSelect",airlines,()=>{document.getElementById("seats").value=1;});
+setupSelect("destinationSelect",destinations);
+setupSelect("ticketTypeSelect",["One-way","Return"],toggleReturn);
 
-document.getElementById("unlock").onclick=()=>{
- speechSynthesis.speak(new SpeechSynthesisUtterance("Announcements enabled"));
- unlock.style.display="none";
-};
+function toggleReturn(v){
+ let s=v==="Return";
+ ["returnLabel","returnTimeLabel","dateReturn","timeReturn","notifyLaterBox"].forEach(id=>document.getElementById(id).style.display=s?"block":"none");
+}
 
-function book(){
- let airline=document.querySelector("#airline .sel").textContent;
- let dest=document.querySelector("#dest .sel").textContent;
- let type=document.querySelector("#type .sel").textContent;
- let time=document.getElementById("time").value;
- let seats=parseInt(document.getElementById("seats").value);
- if(!time||airline==="Select Airline"||dest==="Select Destination")return alert("Fill all fields");
+function bookFlight(){
+ let a=airlineSelect.querySelector(".selected").textContent;
+ let d=destinationSelect.querySelector(".selected").textContent;
+ let t=ticketTypeSelect.querySelector(".selected").textContent;
+ let dateO=dateOut.value,timeO=timeOut.value,se=parseInt(seats.value);
+ if(!dateO||!timeO||a.includes("Select")||d.includes("Select")||t.includes("Select"))return alert("Fill all");
 
- addFlight(time,dest,seats,false,airline);
- if(type==="Return" && ret.value){
-   addFlight(ret.value,"Return from "+dest,seats,true,airline);
+ let flights=JSON.parse(localStorage.flights||"[]");
+
+ flights.push({id:Date.now(),airline:a,dest:d,date:dateO,time:timeO,seats:se,max:seatLimit(a),gate:gateFor(a),status:"Scheduled",ann:false});
+
+ if(t==="Return"&&!notifyLater.checked){
+  flights.push({id:Date.now()+1,airline:a,dest:"Return from "+d,date:dateReturn.value,time:timeReturn.value,seats:se,max:seatLimit(a),gate:gateFor(a),status:"Scheduled",ann:false,return:true});
  }
+
  localStorage.flights=JSON.stringify(flights);
+ loadFlights();
 }
 
-function addFlight(time,dest,seats,isReturn,airline){
- let f=flights.find(x=>x.time===time&&x.dest===dest&&x.airline===airline);
- if(f) f.seats+=seats;
- else flights.push({time,dest,seats,airline,gate:gateFor(airline),status:"Scheduled",ann:false,final:false,ret:isReturn});
-}
+function loadFlights(){
+ let flights=JSON.parse(localStorage.flights||"[]"),list=document.getElementById("list");list.innerHTML="";
+ let now=new Date();
 
-function resetAirport(){
- if(!confirm("Start a new day and delete all flights?")) return;
- localStorage.removeItem("flights");
- flights=[];
- loop();
+ flights.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+
+ flights.forEach(f=>{
+  let dt=new Date(f.date+"T"+f.time);
+  if(now>dt&&f.status==="Scheduled"){f.status="Departed";fly();}
+  if(dt-now<300000&&!f.ann&&f.status==="Scheduled"){speak(`Final call for ${f.dest} at ${f.gate}`);f.ann=true;}
+
+  let r=document.createElement("tr");if(f.return)r.className="return";
+  r.innerHTML=`<td>${f.date}</td><td>${to12(f.time)}</td><td>${f.gate}</td><td>${f.dest}</td><td>${f.seats}/${f.max}</td><td>${f.status}</td>`;
+  list.appendChild(r);
+ });
+
+ localStorage.flights=JSON.stringify(flights);
 }
 
 function speak(t){
- announce.textContent=t;
- ding.currentTime=0;
- ding.play();
- ding.onended=()=>speechSynthesis.speak(new SpeechSynthesisUtterance(t));
+ announcements.textContent=t;
+ let d=document.getElementById("ding");d.play();
+ if("speechSynthesis"in window)setTimeout(()=>speechSynthesis.speak(new SpeechSynthesisUtterance(t)),500);
 }
 
-function to12(t){
- let[h,m]=t.split(":");h=parseInt(h);let a=h>=12?"PM":"AM";h=h%12||12;
- return h+":"+m+" "+a;
-}
+function fly(){let p=document.createElement("div");p.className="plane";p.textContent="✈️";document.body.appendChild(p);setTimeout(()=>p.remove(),6000);}
+function resetAirport(){if(confirm("Reset all flights?")){localStorage.flights="[]";loadFlights();}}
 
-function loop(){
- let now=new Date();
- list.innerHTML="";
- flights.sort((a,b)=>a.time.localeCompare(b.time));
- flights.forEach(f=>{
-  let[h,m]=f.time.split(":");
-  let ft=new Date();ft.setHours(h,m,0);
-  let boarding=new Date(ft-10*60000);
-  let final=new Date(ft-3*60000);
-
-  if(now>boarding&&!f.ann&&f.status==="Scheduled"){speak(`Flight to ${f.dest} now boarding at ${f.gate}`);f.ann=true;}
-  if(now>final&&!f.final&&f.status==="Scheduled"){speak(`Final call for flight to ${f.dest} at ${f.gate}`);f.final=true;}
-  if(now>ft&&f.status==="Scheduled")f.status=f.seats>0?"Departed":"Cancelled";
-
-  let r=document.createElement("tr");
-  if(f.ret)r.className="return";
-  r.innerHTML=`<td>${to12(f.time)}</td><td>${f.dest}</td><td>${f.gate}</td><td>${f.seats}</td><td>${f.status}</td>`;
-  list.appendChild(r);
- });
- localStorage.flights=JSON.stringify(flights);
-}
-
-setInterval(()=>{
+function clock(){
  let d=new Date();
- clock.textContent=(d.getHours()%12||12)+":"+d.getMinutes().toString().padStart(2,"0");
- loop();
-},1000);
+ clockEl=document.getElementById("clock");
+ clockEl.textContent=d.toLocaleString("en-AU",{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
+}
 
-setTimeout(()=>loader.style.display="none",2000);
+setInterval(()=>{clock();loadFlights();},1000);
+setTimeout(()=>document.getElementById("loadingScreen").style.display="none",2000);
+loadFlights();clock();
 </script>
-
 </body>
 </html>
+
